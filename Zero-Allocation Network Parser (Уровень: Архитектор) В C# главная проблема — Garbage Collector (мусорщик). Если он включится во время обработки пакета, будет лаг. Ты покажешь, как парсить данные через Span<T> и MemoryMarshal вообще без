@@ -1,0 +1,31 @@
+using System;
+using System.Runtime.InteropServices;
+
+public ref struct LiquidPacketParser
+{
+    private readonly ReadOnlySpan<byte> _data;
+
+    public LiquidPacketParser(ReadOnlySpan<byte> data) => _data = data;
+
+    public void ParseFast()
+    {
+        // Вместо создания объектов, мы "накладываем" структуру на массив байт
+        // Это Zero-Copy подход. Скорость - максимальная.
+        if (_data.Length < Marshal.SizeOf<PacketHeader>()) return;
+
+        ref readonly var header = ref MemoryMarshal.AsRef<PacketHeader>(_data);
+        
+        // Используем Span для сегментации данных без копирования
+        ReadOnlySpan<byte> payload = _data.Slice(Marshal.SizeOf<PacketHeader>());
+        
+        // Дальнейшая логика обработки...
+    }
+
+    [StructLayout(LayoutKind.Sequential, Pack = 1)]
+    private struct PacketHeader
+    {
+        public uint Magic;
+        public ushort Version;
+        public uint PayloadSize;
+    }
+}
