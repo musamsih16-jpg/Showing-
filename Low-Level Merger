@@ -1,0 +1,59 @@
+#include <iostream>
+#include <fcntl.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#include <vector>
+#include <bitset>
+
+// Используем Bloom Filter для мгновенной проверки наличия ключа
+// Это экономит ГБ оперативной памяти, заменяя тяжелые Hash-таблицы
+const size_t BLOOM_FILTER_SIZE = 100000000; // 100 млн бит
+std::bitset<BLOOM_FILTER_SIZE> bloom_filter;
+
+inline size_t hash_func(const std::string_view& s) {
+    size_t h = 14695981039346656037ULL;
+    for (char c : s) h = (h ^ c) * 1099511628211ULL;
+    return h % BLOOM_FILTER_SIZE;
+}
+
+void process_massive_db(const char* filename) {
+    int fd = open(filename, O_RDONLY);
+    struct stat st;
+    fstat(fd, &st);
+
+    // СЕКРЕТ: mmap отображает файл прямо в адресное пространство процесса.
+    // RAM не тратится, пока мы не обратимся к конкретной странице (Zero-copy).
+    char* data = (char*)mmap(nullptr, st.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
+    
+    if (data == MAP_FAILED) return;
+
+    // Линейное сканирование с использованием SIMD-оптимизаций процессора
+    std::string_view view(data, st.st_size);
+    size_t start = 0, end = 0;
+
+    while ((end = view.find('\n', start)) != std::string_view::npos) {
+        std::string_view line = view.substr(start, end - start);
+        size_t h = hash_func(line);
+
+        if (!bloom_filter.test(h)) {
+            // Если в фильтре 0 — данных точно нет в новой базе. Записываем.
+            bloom_filter.set(h);
+            // Тут логика записи в итоговый файл (через fwrite_unlocked для скорости)
+        }
+        start = end + 1;
+    }
+
+    munmap(data, st.st_size);
+    close(fd);
+}
+
+int main() {
+    // Включаем турбо-режим для ввода-вывода
+    std::ios_base::sync_with_stdio(false);
+    
+    process_massive_db("database_part1.bin");
+    process_massive_db("database_part2.bin");
+    
+    return 0;
+}
